@@ -6,7 +6,7 @@ import {
   RotateCcw, CheckCircle2, Bookmark, ArrowRight, HelpCircle, 
   Camera, File, Copy, Save, Check
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion"; // Correction : import standard depuis framer-motion ou motion
+import { motion, AnimatePresence } from "framer-motion"; 
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
@@ -41,6 +41,24 @@ interface SimpleFile {
   name: string;
   type: string;
 }
+
+const cleanScientificText = (text: string): string => {
+  if (!text) return "";
+  return text
+    .replace(/\$\$/g, '')
+    .replace(/\$/g, '')
+    .replace(/\\Delta_r\s*G\^\\circ/g, 'ΔrG°')
+    .replace(/\\Delta_r\s*G/g, 'ΔrG')
+    .replace(/\\Delta/g, 'Δ')
+    .replace(/\^\\circ\s*/g, '°')
+    .replace(/\$K\^\\circ\$/g, 'K°')
+    .replace(/K\^\\circ/g, 'K°')
+    .replace(/\\cdot/g, '·')
+    .replace(/\\ln/g, 'ln')
+    .replace(/\\,/g, ' ')
+    .replace(/\^{-1}/g, '⁻¹')
+    .replace(/\\/g, '');
+};
 
 export default function SynthesisView({ 
   onSynthesisGenerated, 
@@ -216,7 +234,8 @@ export default function SynthesisView({
                 if (parsed.error) throw new Error(parsed.error);
                 if (parsed.text) {
                   accumulatedText += parsed.text;
-                  setStreamedText(accumulatedText);
+                  // On applique directement le nettoyage lors du streaming
+                  setStreamedText(cleanScientificText(accumulatedText));
 
                   if (!hasReceivedFirstChunk) {
                     hasReceivedFirstChunk = true;
@@ -247,25 +266,27 @@ export default function SynthesisView({
         titleStr = file.name.replace(/\.[^/.]+$/, "");
       }
 
+      const cleanedFinalText = cleanScientificText(accumulatedText);
+
       const synthesis: CourseSynthesis = {
         title: titleStr,
         plan: [],
         concepts: [],
         essential: [],
-        markdownContent: accumulatedText
+        markdownContent: cleanedFinalText
       };
 
       const fileInfo = file ? {
         name: file.name,
         type: file.type,
-        text: accumulatedText
+        text: cleanedFinalText
       } : text ? {
         name: "Notes collées",
         type: "text/plain",
-        text: text
+        text: cleanedFinalText
       } : undefined;
 
-      onSynthesisGenerated(synthesis, accumulatedText, fileInfo);
+      onSynthesisGenerated(synthesis, cleanedFinalText, fileInfo);
       setText("");
       setFile(null);
       setFileBase64(null);
@@ -300,7 +321,7 @@ export default function SynthesisView({
     clean = clean.replace(/^####\s+(.+)$/gm, "  • $1\n");
     clean = clean.replace(/^\s*#+\s+(.+)$/gm, "• $1");
     clean = clean.replace(/\*\*\*(.*?)\*\*\*/g, "$1");
-    clean = clean.replace(/\*\*(.*?)\*\*/g, "$1");
+    clean = clean.replace(/\*\*\((.*?)\*\*/g, "$1");
     clean = clean.replace(/\*(.*?)\*/g, "$1");
     clean = clean.replace(/__(.*?)__/g, "$1");
     clean = clean.replace(/_(.*?)_/g, "$1");
@@ -355,7 +376,7 @@ export default function SynthesisView({
       }
 
       if (!markdownText) markdownText = streamedText;
-      markdownText = markdownText.replace(/\\n/g, '\n');
+      markdownText = cleanScientificText(markdownText.replace(/\\n/g, '\n'));
 
       const sections = markdownText.split(/(?=### )/);
       const container = document.createElement('div');
@@ -595,7 +616,7 @@ export default function SynthesisView({
               }`}
               id="submit-synthesis-button"
             >
-              "🚀 Synthétiser mon Cours ✨"
+              🚀 Synthétiser mon Cours ✨
             </button>
           </motion.form>
         )}
@@ -648,7 +669,7 @@ export default function SynthesisView({
 
               <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed space-y-3 font-sans markdown-body" id="synthesis-rendered-content">
                 <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
-                  {activeSession?.synthesis?.markdownContent || streamedText}
+                  {cleanScientificText(activeSession?.synthesis?.markdownContent || streamedText)}
                 </ReactMarkdown>
               </div>
             </div>
