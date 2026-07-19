@@ -309,7 +309,11 @@ export default function SynthesisView({
       if (!element) return;
 
       // On importe la bibliothèque uniquement au moment du clic pour éviter les bugs de build
-      const { default: html2pdf } = await import('html2pdf.js');
+const html2pdf = (window as any).html2pdf;
+if (!html2pdf) {
+  console.error("html2pdf n'est pas encore chargé");
+  return;
+}
 
       // On clone temporairement l'élément pour lui appliquer un style clair adapté à l'impression
       const printContainer = document.createElement("div");
