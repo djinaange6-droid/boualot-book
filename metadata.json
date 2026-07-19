@@ -1,0 +1,6 @@
+{
+  "name": "Boualot Book",
+  "description": "Transformez vos cours en synthèses claires, testez-vous avec Le Défi Quiz de 30 questions et progressez grâce à votre Coach IA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

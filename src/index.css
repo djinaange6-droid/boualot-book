@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Custom global animations and styles */
+html, body {
+  font-family: var(--font-sans);
+  background-color: #f8fafc;
+  color: #0f172a;
+  overflow-x: hidden;
+  height: 100%;
+}
+
+/* Glassmorphism scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Beautiful dynamic background animation */
+.bg-gradient-mesh {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 100% 0%, #e0f2fe 0px, transparent 50%),
+    radial-gradient(at 0% 100%, #eff6ff 0px, transparent 50%),
+    radial-gradient(at 80% 80%, #f0fdf4 0px, transparent 40%);
+}
+
+.iphone-bezel {
+  box-shadow: 0 0 0 12px #1e293b, 0 10px 50px rgba(0,0,0,0.15);
+}
