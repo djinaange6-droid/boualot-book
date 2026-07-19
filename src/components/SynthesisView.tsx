@@ -14,6 +14,9 @@ import { CourseSynthesis, StudySession } from "../types";
 import { resizeImage } from "../utils/imageResize";
 import { fetchWithRetry } from "../utils/connectivity";
 
+// Import du CSS de KaTeX pour que les formules s'affichent correctement partout
+import 'katex/dist/katex.min.css';
+
 interface SynthesisViewProps {
   onSynthesisGenerated: (
     synthesis: CourseSynthesis, 
@@ -42,24 +45,6 @@ interface SimpleFile {
   type: string;
 }
 
-const cleanScientificText = (text: string): string => {
-  if (!text) return "";
-  return text
-    .replace(/\$\$/g, '')
-    .replace(/\$/g, '')
-    .replace(/\\Delta_r\s*G\^\\circ/g, 'ΔrG°')
-    .replace(/\\Delta_r\s*G/g, 'ΔrG')
-    .replace(/\\Delta/g, 'Δ')
-    .replace(/\^\\circ\s*/g, '°')
-    .replace(/\$K\^\\circ\$/g, 'K°')
-    .replace(/K\^\\circ/g, 'K°')
-    .replace(/\\cdot/g, '·')
-    .replace(/\\ln/g, 'ln')
-    .replace(/\\,/g, ' ')
-    .replace(/\^{-1}/g, '⁻¹')
-    .replace(/\\/g, '');
-};
-
 export default function SynthesisView({ 
   onSynthesisGenerated, 
   activeSession, 
@@ -85,7 +70,6 @@ export default function SynthesisView({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stepIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Pre-load manual file inputs from library session
   useEffect(() => {
     if (activeSession?.sourceFile && !activeSession.synthesis) {
       if (activeSession.sourceFile.base64) {
@@ -234,8 +218,7 @@ export default function SynthesisView({
                 if (parsed.error) throw new Error(parsed.error);
                 if (parsed.text) {
                   accumulatedText += parsed.text;
-                  // On applique directement le nettoyage lors du streaming
-                  setStreamedText(cleanScientificText(accumulatedText));
+                  setStreamedText(accumulatedText);
 
                   if (!hasReceivedFirstChunk) {
                     hasReceivedFirstChunk = true;
@@ -266,27 +249,25 @@ export default function SynthesisView({
         titleStr = file.name.replace(/\.[^/.]+$/, "");
       }
 
-      const cleanedFinalText = cleanScientificText(accumulatedText);
-
       const synthesis: CourseSynthesis = {
         title: titleStr,
         plan: [],
         concepts: [],
         essential: [],
-        markdownContent: cleanedFinalText
+        markdownContent: accumulatedText
       };
 
       const fileInfo = file ? {
         name: file.name,
         type: file.type,
-        text: cleanedFinalText
+        text: accumulatedText
       } : text ? {
         name: "Notes collées",
         type: "text/plain",
-        text: cleanedFinalText
+        text: accumulatedText
       } : undefined;
 
-      onSynthesisGenerated(synthesis, cleanedFinalText, fileInfo);
+      onSynthesisGenerated(synthesis, accumulatedText, fileInfo);
       setText("");
       setFile(null);
       setFileBase64(null);
@@ -308,53 +289,11 @@ export default function SynthesisView({
     setStreamedText("");
   };
 
-  const cleanMarkdownForClipboard = (md: string): string => {
-    if (!md) return "";
-    let clean = md;
-    clean = clean.replace(/\$\$(.*?)\$\$/gs, "$1");
-    clean = clean.replace(/\$(.*?)\$/g, "$1");
-    clean = clean.replace(/^[\|\s\-\:\+]+$/gm, "");
-    clean = clean.replace(/\|/g, "  ");
-    clean = clean.replace(/^#\s+(.+)$/gm, "📌 === $1 ===\n");
-    clean = clean.replace(/^##\s+(.+)$/gm, "🔬 $1\n");
-    clean = clean.replace(/^###\s+(.+)$/gm, "👉 $1\n");
-    clean = clean.replace(/^####\s+(.+)$/gm, "  • $1\n");
-    clean = clean.replace(/^\s*#+\s+(.+)$/gm, "• $1");
-    clean = clean.replace(/\*\*\*(.*?)\*\*\*/g, "$1");
-    clean = clean.replace(/\*\*\((.*?)\*\*/g, "$1");
-    clean = clean.replace(/\*(.*?)\*/g, "$1");
-    clean = clean.replace(/__(.*?)__/g, "$1");
-    clean = clean.replace(/_(.*?)_/g, "$1");
-    clean = clean.replace(/~~(.*?)~~/g, "$1");
-    clean = clean.replace(/```[a-z]*\n([\s\S]*?)```/gi, "$1");
-    clean = clean.replace(/`(.*?)`/g, "$1");
-    clean = clean.replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1");
-    clean = clean.replace(/^\s*[\-\*]\s+(.+)$/gm, "• $1");
-    clean = clean.replace(/\n{3,}/g, "\n\n");
-    return clean.trim();
-  };
-
   const handleCopyToClipboard = () => {
     const element = document.getElementById("synthesis-rendered-content");
-    let textToCopy = "";
-    
-    if (element) {
-      textToCopy = element.innerText || element.textContent || "";
-    }
-
-    if (!textToCopy) {
-      const rawText = activeSession?.synthesis?.markdownContent || streamedText;
-      textToCopy = cleanMarkdownForClipboard(rawText);
-    }
+    let textToCopy = element?.innerText || element?.textContent || streamedText;
     
     if (textToCopy) {
-      textToCopy = textToCopy
-        .replace(/\n([<>=+\-–—→])/g, " $1")
-        .replace(/([<>=+\-–—→])\n/g, "$1 ")
-        .replace(/([A-Za-z0-9À-ÿ])\n([A-Za-z0-9À-ÿ])/g, "$1$2")
-        .replace(/\n+/g, "\n")
-        .replace(/\n\s*\n/g, "\n\n");
-
       navigator.clipboard.writeText(textToCopy).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -364,79 +303,37 @@ export default function SynthesisView({
     }
   };
 
+  // NOUVELLE VERSION : Génère le PDF directement à partir du rendu HTML propre (avec KaTeX)
   const handleSaveToFile = async () => {
     try {
-      let rawSynthesis = activeSession && 'synthesis' in activeSession ? (activeSession as any).synthesis : "";
-      let markdownText = "";
+      const element = document.getElementById("synthesis-rendered-content");
+      if (!element || !html2pdf) return;
 
-      if (typeof rawSynthesis === "string") {
-        markdownText = rawSynthesis;
-      } else if (rawSynthesis && typeof rawSynthesis === "object") {
-        markdownText = rawSynthesis.markdownContent || rawSynthesis.content || rawSynthesis.text || rawSynthesis.markdown || streamedText;
-      }
+      // On clone temporairement l'élément pour lui appliquer un style clair adapté à l'impression
+      const printContainer = document.createElement("div");
+      printContainer.innerHTML = element.innerHTML;
+      printContainer.style.width = "800px";
+      printContainer.style.padding = "40px";
+      printContainer.style.backgroundColor = "#ffffff";
+      printContainer.style.color = "#1a202c";
+      printContainer.style.fontFamily = "system-ui, sans-serif";
+      
+      // Forcer le texte en noir et adapter les titres pour le PDF
+      const titles = printContainer.querySelectorAll("h1, h2, h3, h4");
+      titles.forEach((t: any) => t.style.color = "#2b6cb0");
 
-      if (!markdownText) markdownText = streamedText;
-      markdownText = cleanScientificText(markdownText.replace(/\\n/g, '\n'));
-
-      const sections = markdownText.split(/(?=### )/);
-      const container = document.createElement('div');
-      container.style.width = '1120px';
-      container.style.backgroundColor = '#ffffff';
-
-      sections.forEach((section, index) => {
-        if (!section.trim()) return;
-
-        let htmlContent = section
-          .replace(/### (.*?)\n/g, '<h2 style="color: #e53e3e; font-size: 28px; font-weight: bold; margin-bottom: 20px;">$1</h2>')
-          .replace(/\*\*([^*]+)\*\*/g, '<strong style="color: #2b6cb0;">$1</strong>')
-          .replace(/\* (.*?)\n/g, '<li style="color: #2d3748; font-size: 20px; margin-bottom: 12px; line-height: 1.5;">$1</li>');
-
-        htmlContent = htmlContent.replace(/(<li>.*?<\/li>)/gs, '<ul style="padding-left: 25px; list-style-type: disc;">$1</ul>');
-        
-        htmlContent = htmlContent.split('\n\n').map(p => {
-          const trimmed = p.trim();
-          if (trimmed.startsWith('<h2') || trimmed.startsWith('<ul')) return trimmed;
-          return `<p style="color: #2d3748; font-size: 20px; margin-bottom: 12px; line-height: 1.5;">${trimmed}</p>`;
-        }).join('');
-
-        const slide = document.createElement('div');
-        slide.className = 'pdf-slide';
-        slide.style.width = '1120px';
-        slide.style.height = '630px';
-        slide.style.padding = '50px';
-        slide.style.boxSizing = 'border-box';
-        slide.style.fontFamily = '"Segoe UI", Roboto, Helvetica, Arial, sans-serif';
-        slide.style.position = 'relative';
-        slide.style.backgroundColor = '#ffffff';
-        
-        if (index > 0) {
-          slide.style.pageBreakBefore = 'always';
-        }
-
-        slide.innerHTML = `
-          <div style="height: 100%; border: 2px solid #e2e8f0; padding: 30px; box-sizing: border-box; border-radius: 8px;">
-            ${htmlContent}
-            <div style="position: absolute; bottom: 25px; right: 50px; font-size: 14px; color: #a0aec0;">
-              Boualot Book • Page ${index + 1}
-            </div>
-          </div>
-        `;
-
-        container.appendChild(slide);
-      });
-
-      const sessionTitle = activeSession && 'title' in activeSession ? (activeSession as any).title : 'Presentation';
+      const sessionTitle = activeSession?.title || 'Synthese_Boualot_Book';
       const fileName = `${sessionTitle.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
       const options = {
-        margin: 0,
+        margin: 10,
         filename: fileName,
-        image: { type: 'jpeg' as const, quality: 0.98 },
+        image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' as const }
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      await html2pdf().set(options).from(container).save();
+      await html2pdf().set(options).from(printContainer).save();
 
       if (activeSession && typeof onSaveToLibrary === "function") {
         onSaveToLibrary(activeSession);
@@ -445,14 +342,13 @@ export default function SynthesisView({
       setTimeout(() => setSaved(false), 3000);
 
     } catch (error) {
-      console.error("Erreur lors de la génération du PDF de présentation :", error);
+      console.error("Erreur lors de la génération du PDF :", error);
     }
   };
 
   return (
     <div className={`space-y-4 px-1 py-1 transition-colors duration-200 ${darkMode ? "text-slate-100" : "text-slate-800"}`} id="synthesis-widget-container">
       <AnimatePresence mode="wait">
-        {/* State 1: Loading */}
         {isLoading && (
           <motion.div 
             key="loading"
@@ -488,7 +384,6 @@ export default function SynthesisView({
           </motion.div>
         )}
 
-        {/* State 2: Unreadable Warning */}
         {!isLoading && unreadableMsg && (
           <motion.div 
             key="unreadable"
@@ -519,7 +414,6 @@ export default function SynthesisView({
           </motion.div>
         )}
 
-        {/* State 3: Document Upload / Form */}
         {!isLoading && !unreadableMsg && !activeSession?.synthesis && !streamedText && (
           <motion.form 
             key="input-form"
@@ -621,7 +515,6 @@ export default function SynthesisView({
           </motion.form>
         )}
 
-        {/* State 4: Streamed / Finished Results */}
         {!isLoading && !unreadableMsg && (activeSession?.synthesis || streamedText) && (
           <motion.div 
             key="synthesis-result"
@@ -669,12 +562,11 @@ export default function SynthesisView({
 
               <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed space-y-3 font-sans markdown-body" id="synthesis-rendered-content">
                 <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
-                  {cleanScientificText(activeSession?.synthesis?.markdownContent || streamedText)}
+                  {activeSession?.synthesis?.markdownContent || streamedText}
                 </ReactMarkdown>
               </div>
             </div>
 
-            {/* Quick Actions Panel */}
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
@@ -688,7 +580,7 @@ export default function SynthesisView({
                 onClick={handleSaveToFile}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs rounded-xl transition cursor-pointer"
               >
-                <Save className="w-3.5 h-3.5" /> Exporter en Slide PDF
+                <Save className="w-3.5 h-3.5" /> Exporter en PDF Propre
               </button>
               <button
                 type="button"
