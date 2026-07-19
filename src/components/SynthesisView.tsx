@@ -15,7 +15,7 @@ import { resizeImage } from "../utils/imageResize";
 import { fetchWithRetry } from "../utils/connectivity";
 
 // Import du CSS de KaTeX pour que les formules s'affichent correctement partout
-import 'katex/dist/katex.min.css';
+
 
 interface SynthesisViewProps {
   onSynthesisGenerated: (
