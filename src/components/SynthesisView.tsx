@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { jsPDF } from 'jspdf';
-const html2pdf = typeof window !== 'undefined' ? require('html2pdf.js') : null;
 import { 
   FileText, Upload, Sparkles, AlertCircle, BookOpen, AlertTriangle,
   RotateCcw, CheckCircle2, Bookmark, ArrowRight, HelpCircle, 
@@ -303,11 +302,14 @@ export default function SynthesisView({
     }
   };
 
-  // NOUVELLE VERSION : Génère le PDF directement à partir du rendu HTML propre (avec KaTeX)
+ // NOUVELLE VERSION : Importation dynamique et propre pour Vite
   const handleSaveToFile = async () => {
     try {
       const element = document.getElementById("synthesis-rendered-content");
-      if (!element || !html2pdf) return;
+      if (!element) return;
+
+      // On importe la bibliothèque uniquement au moment du clic pour éviter les bugs de build
+      const { default: html2pdf } = await import('html2pdf.js');
 
       // On clone temporairement l'élément pour lui appliquer un style clair adapté à l'impression
       const printContainer = document.createElement("div");
@@ -333,7 +335,7 @@ export default function SynthesisView({
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      await html2pdf().set(options).from(printContainer).save();
+    await html2pdf().set(options as any).from(printContainer).save();
 
       if (activeSession && typeof onSaveToLibrary === "function") {
         onSaveToLibrary(activeSession);
