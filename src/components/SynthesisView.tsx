@@ -322,7 +322,7 @@ export default function SynthesisView({
       const titles = printContainer.querySelectorAll("h1, h2, h3, h4");
       titles.forEach((t: any) => t.style.color = "#2b6cb0");
 
-      const sessionTitle = activeSession?.title || 'Synthese_Boualot_Book';
+      const sessionTitle = activeSession?.synthesis?.title || 'Synthese_Boualot_Book';
       const fileName = `${sessionTitle.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
       const options = {
