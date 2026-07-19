@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { jsPDF } from 'jspdf';
-import html2pdf from 'html2pdf.js';
+const html2pdf = typeof window !== 'undefined' ? require('html2pdf.js') : null;
 import { 
   FileText, Upload, Sparkles, AlertCircle, BookOpen, AlertTriangle,
   RotateCcw, CheckCircle2, Bookmark, ArrowRight, HelpCircle, 
